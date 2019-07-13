@@ -85,12 +85,25 @@ get_date(){
 	commit_date=$(echo "$dow,$hod,$moh")
 }
 
+repo_deets=""
+repo_details(){
+	repo_deets=$(curl -s https://api.github.com/repos/$user/$repo)
+
+	forks_count=$(echo "$repo_deets" | jq '.forks_count')
+	stargazers_count=$(echo "$repo_deets" | jq '.stargazers_count')
+	watchers_count=$(echo "$repo_deets" | jq '.watchers_count')
+	size=$(echo "$repo_deets" | jq '.size')
+	open_issues_count=$(echo "$repo_deets" | jq '.open_issues_count')
+	subscribers_count=$(echo "$repo_deets" | jq '.subscribers_count')
+
+	repo_deets=$(echo "$forks_count,$stargazers_count,$watchers_count,$size,$open_issues_count,$subscribers_count")
+}
 
 folder=$(echo "$1" | cut -d / -f 5)
 git clone $1 /tmp/$folder
 
 cd /tmp/$folder
-echo "Author_Repos, Author_Gists, Author_Followers, Author_Following, Author_Type, Author_Company, Author_Days, Commit_Date_DOW, Commit_Date_HOD, Commit_Date_MOH, Commit Message, Number of Removed File, Number of Added Files, Number of Edited Files, Amount of edit bytes, Added content, Removed content"
+echo "Repo_Forks, Repo_Stars, Repo_Watchers, Repo_Size, Repo_Issues, Repo_Subscribers, Author_Repos, Author_Gists, Author_Followers, Author_Following, Author_Type, Author_Company, Author_Days, Commit_Date_DOW, Commit_Date_HOD, Commit_Date_MOH, Commit Message, Number of Removed File, Number of Added Files, Number of Edited Files, Amount of edit bytes, Added content, Removed content"
 for id in $(git log | grep -E "^commit" | cut -d ' ' -f 2); do
 
 	commit_details=$(git show $id | cat)
@@ -113,11 +126,14 @@ for id in $(git log | grep -E "^commit" | cut -d ' ' -f 2); do
 	if [ -z "$n_edit_files" ]; then
 		n_edit_files=0
 	fi
-	echo "$commit_author,$commit_date,$commit_msg,$n_removed_files,$n_added_files,$n_edit_files,$n_edit_size,$added_lines,$removed_lines"
+
+	repo_details
+
+	echo "$repo_deets,$commit_author,$commit_date,$commit_msg,$n_removed_files,$n_added_files,$n_edit_files,$n_edit_size,$added_lines,$removed_lines"
 
 done
 
 rm -rf /tmp/$folder
 
 
-# for repo in "https://github.com/ShefWuzi/msc-dissertation" "https://github.com/dominictarr/event-stream" "https://github.com/eslint/eslint-scope" " https://github.com/vasilevich/nginxbeautifier" " https://github.com/Neil-UWA/simple-alipay" " https://github.com/andrewjstone/s3asy" " https://github.com/OpusCapita/react-dates" " https://github.com/react-component/calendar" " https://github.com/anbi/mydatepicker"; do repo_name=$(echo $repo | rev | cut -d / -f 1 | rev); ./git_metadata.sh $repo > $repo_name.csv ; echo "Done with $repo_name....Sleeping"; sleep 15m;  done
+# for repo in "https://github.com/ShefWuzi/msc-dissertation" "https://github.com/dominictarr/event-stream" "https://github.com/eslint/eslint-scope" "https://github.com/vasilevich/nginxbeautifier" "https://github.com/Neil-UWA/simple-alipay" "https://github.com/andrewjstone/s3asy" "https://github.com/OpusCapita/react-dates" "https://github.com/react-component/calendar" "https://github.com/anbi/mydatepicker"; do repo_name=$(echo $repo | rev | cut -d / -f 1 | rev); ./git_metadata.sh $repo > $repo_name.csv ; echo "Done with $repo_name....Sleeping"; sleep 15m;  done
