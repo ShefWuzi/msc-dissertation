@@ -5,6 +5,18 @@ if [ $# -ne 1 ]; then
 	exit;
 fi
 
+check_github_api=$(curl -s https://api.github.com/users/ShefWuzi | jq 'select (.message != null) | .message' | grep "API rate limit")
+while true; 
+do
+	if [[ $check_github_api != "" ]]; then
+		sleep 10m;
+		check_github_api=$(curl -s https://api.github.com/users/ShefWuzi | jq 'select (.message != null) | .message')
+	else
+		break
+	fi
+done
+
+
 user=$(echo $1 | rev | cut -d / -f 2 | rev)
 repo=$(echo $1 | rev | cut -d / -f 1 | rev)
 
