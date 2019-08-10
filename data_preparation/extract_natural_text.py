@@ -2,7 +2,11 @@
 
 from similarity.jarowinkler import JaroWinkler #https://github.com/luozhouyang/python-string-similarity
 import re, collections
+import sys
 
+if len(sys.argv) != 2:
+	print("[x] Usage: python %s <text_data_file>" %sys.argv[0])
+	sys.exit(0)
 
 class Heuristics:
 
@@ -138,105 +142,19 @@ class Clustering:
 		return self.bottom_up(preprocessed_data)
 
 
-issues = """
-Hi,
-I am running fluentd daemonset on a kubernetes cluster and redirecting logs to splunk. The following given stack trace is not seen at splunk after using the detect exception plugin also.
+def get_natural_words(clusters):
+	#Identify cluster for natural text
+	c_id = max(enumerate([len([w for w in c if w.endswith("_N")]) for c in clusters]), key=lambda x:x[1])[0]
+	
+	return ' '.join([w[:-2].replace("_N", " ") for w in clusters[c_id]]).split(' ')
 
-I have a stack trace like below:
-
-2019-02-06 09:32:51.839 [qtp396180261-19 - /resteasy/exception] INFO  com.intuit.application.SyncControllerImpl - Stack trace of current thread using dumpStack() method
-java.lang.Exception: Stack trace
-	at java.lang.Thread.dumpStack(Thread.java:1336)
-	at com.intuit.application.SyncControllerImpl.createException(SyncControllerImpl.java:38)
-	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
-	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
-	at java.lang.reflect.Method.invoke(Method.java:498)
-	at org.jboss.resteasy.core.MethodInjectorImpl.invoke(MethodInjectorImpl.java:167)
-	at org.jboss.resteasy.core.ResourceMethod.invokeOnTarget(ResourceMethod.java:269)
-	at org.jboss.resteasy.core.ResourceMethod.invoke(ResourceMethod.java:227)
-	at org.jboss.resteasy.core.ResourceMethod.invoke(ResourceMethod.java:216)
-	at org.jboss.resteasy.springmvc.ResteasyHandlerAdapter.createModelAndView(ResteasyHandlerAdapter.java:87)
-	at org.jboss.resteasy.springmvc.ResteasyHandlerAdapter.handle(ResteasyHandlerAdapter.java:74)
-	at org.jboss.resteasy.springmvc.ResteasyHandlerAdapter.handle(ResteasyHandlerAdapter.java:24)
-	at org.jboss.resteasy.springmvc.ResteasyWebHandlerTemplate.handle(ResteasyWebHandlerTemplate.java:39)
-	at org.jboss.resteasy.springmvc.ResteasyHandlerAdapter.handle(ResteasyHandlerAdapter.java:45)
-	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:963)
-	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:897)
-	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:970)
-	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:861)
-	at javax.servlet.http.HttpServlet.service(HttpServlet.java:622)
-	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:846)
-	at javax.servlet.http.HttpServlet.service(HttpServlet.java:729)
-	at org.eclipse.jetty.servlet.ServletHolder.handle(ServletHolder.java:684)
-	at org.eclipse.jetty.servlet.ServletHandler.doHandle(ServletHandler.java:501)
-	at org.eclipse.jetty.server.handler.ScopedHandler.handle(ScopedHandler.java:137)
-	at org.eclipse.jetty.security.SecurityHandler.handle(SecurityHandler.java:557)
-	at org.eclipse.jetty.server.session.SessionHandler.doHandle(SessionHandler.java:231)
-	at org.eclipse.jetty.server.handler.ContextHandler.doHandle(ContextHandler.java:1086)
-	at org.eclipse.jetty.servlet.ServletHandler.doScope(ServletHandler.java:427)
-	at org.eclipse.jetty.server.session.SessionHandler.doScope(SessionHandler.java:193)
-	at org.eclipse.jetty.server.handler.ContextHandler.doScope(ContextHandler.java:1020)
-	at org.eclipse.jetty.server.handler.ScopedHandler.handle(ScopedHandler.java:135)
-	at org.eclipse.jetty.server.handler.HandlerWrapper.handle(HandlerWrapper.java:116)
-	at org.eclipse.jetty.server.Server.handle(Server.java:366)
-	at org.eclipse.jetty.server.AbstractHttpConnection.handleRequest(AbstractHttpConnection.java:494)
-	at org.eclipse.jetty.server.BlockingHttpConnection.handleRequest(BlockingHttpConnection.java:53)
-	at org.eclipse.jetty.server.AbstractHttpConnection.headerComplete(AbstractHttpConnection.java:973)
-	at org.eclipse.jetty.server.AbstractHttpConnection$RequestHandler.headerComplete(AbstractHttpConnection.java:1035)
-	at org.eclipse.jetty.http.HttpParser.parseNext(HttpParser.java:641)
-	at org.eclipse.jetty.http.HttpParser.parseAvailable(HttpParser.java:231)
-	at org.eclipse.jetty.server.BlockingHttpConnection.handle(BlockingHttpConnection.java:72)
-	at org.eclipse.jetty.server.bio.SocketConnector$ConnectorEndPoint.run(SocketConnector.java:264)
-	at org.eclipse.jetty.util.thread.QueuedThreadPool.runJob(QueuedThreadPool.java:608)
-	at org.eclipse.jetty.util.thread.QueuedThreadPool$3.run(QueuedThreadPool.java:543)
-	at java.lang.Thread.run(Thread.java:748)
-displaying Stack trace from StackTraceElement in Java
-
-===================
-This is my fluentd config:
-
-<source>
-      @type tail
-      format json
-      time_key time
-      time_format %Y-%m-%dT%H:%M:%S.%NZ
-      read_from_head true
-
-      path /var/log/containers/*.log
-      pos_file /var/log/fluentd/es-containers.log.pos
-      tag raw.kubernetes.*
-    </source>
-
- # Detect exceptions in the log output and forward them as one log entry.
-    <match raw.kubernetes.**>
-      @id raw.kubernetes
-      @type detect_exceptions
-      remove_tag_prefix raw
-      message message
-      stream stream
-      languages java, python
-      multiline_flush_interval 5
-    </match>
-    # Concatenate multi-line logs
-    <filter kubernetes.**>
-      @id filter_concat
-      @type concat
-      key message
-      multiline_end_regexp /\n$/
-      separator ""
-    </filter>
-
-===============
-I see only first and last line but not the actual stack trace
-java.lang.Exception: Stack trace - this is seen
-displaying Stack trace from StackTraceElement in Java - this is seen
-the in between stack trace is lost
-"""
-
+with open(sys.argv[1], "r") as f:
+	issues = f.read()
 heuristics = Heuristics()
 pp_d = heuristics.run_heuristics(issues)
-
 clustering = Clustering()
 c_d = clustering.run_clustering(pp_d)
-print(c_d)
+
+
+natural_words = get_natural_words(c_d)
+print(' '.join([word for word in issues.split(" ") if word in natural_words]))
