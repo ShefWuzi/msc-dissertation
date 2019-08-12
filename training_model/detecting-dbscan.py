@@ -1,4 +1,4 @@
-import random, sys
+import sys
 from collections import Counter
 import numpy as np
 
@@ -57,31 +57,36 @@ def DBSCAN(eps, MinPts=3):
 		else:
 			expandCluster(P, NeighborPts, [], eps, MinPts)
 
-			
 
-
-
-#[author_name, dow, hod, moh, n_removed, n_added, n_edit, n_edit_l]
-D, n_r, n_a, n_e, n_e_l, clusters = [], [], [], [], [], []
+#[author_name, dow, hod, moh, n_removed, n_added, n_edit, n_edit_l, malicious]
+D, n_r, n_a, n_e, n_e_l, clusters, no_malicious = [], [], [], [], [], [], 0
 with open(sys.argv[1], "r") as data_file:
 	data_file.readline()
 	p_id = 0
 	for line in data_file:
 		ls = line.split(",")
 
-		n_r.append(int(ls[18]))
-		n_a.append(int(ls[19]))
-		n_e.append(int(ls[20]))
-		n_e_l.append(int(ls[21]))
+		if ls[26].strip() == "T": no_malicious += 1
 
-		D.append({"id": p_id, "visited": False, "cluster": None, "type": None, "data": [x if i < 15 else int(x) for i,x in enumerate(ls) if i in [6, 14, 15, 16, 18, 19, 20, 21]]})
+		n_r.append(int(ls[19]))
+		n_a.append(int(ls[20]))
+		n_e.append(int(ls[21]))
+		n_e_l.append(int(ls[22]))
+
+		D.append({"id": p_id, "visited": False, "malicious": True if ls[26].strip() == "T" else False,"cluster": None, "type": None, "data": [x if i < 15 else int(x) for i,x in enumerate(ls) if i in [6, 14, 15, 16, 19, 20, 21, 22]]})
 		p_id += 1
 
 # print(D[0], regionQuery(D[0], [2, 10, np.std(n_r), np.std(n_a), np.std(n_e), np.std(n_e_l)]))
 DBSCAN([3, 20, np.std(n_r), np.std(n_a), np.std(n_e), np.std(n_e_l)], 4)
 
+tp = 0
+no_suspicious = 0
 for P in D:
 	if P["cluster"] is None: 
-		print(P)
-print("\n\n\n")
-print(len(clusters))
+		no_suspicious += 1
+		if P["malicious"]: tp+=1
+		print(P["id"], end=",")
+
+
+print("\n\nPrecision: %.2f" %(tp/no_suspicious))
+print("Recall: %.2f" %(tp/no_malicious))
