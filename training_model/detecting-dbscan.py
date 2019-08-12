@@ -88,5 +88,5 @@ for P in D:
 		print(P["id"], end=",")
 
 
-print("\n\nPrecision: %.2f" %(tp/no_suspicious))
+print("\n\nPrecision: %.3f" %(tp/no_suspicious))
 print("Recall: %.2f" %(tp/no_malicious))
