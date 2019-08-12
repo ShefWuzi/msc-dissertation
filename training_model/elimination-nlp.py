@@ -57,18 +57,21 @@ with open(sys.argv[2], "r") as issue_file:
 		issues[ls[0]] = [x for i, x in enumerate(ls) if i in [1, 2, 3, 4, 10, 11]]
 
 
-#{p_id commit_date hod moh : commit message}
+no_malicious = 0
+#{p_id commit_date : commit message}
 with open(sys.argv[3], "r") as commit_file:
 	commit_file.readline()
 	p_id = 0
 	for line in commit_file:
+		ls = line.split(",")
+		if ls[26].strip() == "T": no_malicious+=1
+
 		if p_id not in ids: 
 			p_id += 1
 			continue
-		ls = line.split(",")
 
-		ckey = "%d %s %s:%s" %(p_id, ls[17], ls[15], ls[16])
-		commits[ckey] = commits.get(ckey, "") + "\n" + ls[18]
+		ckey = "%d %s %s" %(p_id, ls[17], ls[26].strip())
+		commits[ckey] = commits.get(ckey, "") + "\n" + ls[18].replace("<c>", ",").replace("<\n>", "\n")
 		p_id += 1
 
 #Create TFIDF of all issues
@@ -76,7 +79,15 @@ tfidf = TfidfVectorizer(analyzer="word", ngram_range=(1,3), min_df=0, stop_words
 issues_tfidf = tfidf.fit_transform([v[4]+"\n"+v[5] for v in issues.values()])
 
 
+no_suspicious = 0
+tp = 0
 for ckey, cvalue in commits.items():
 	if not fix_commits_heuristics(' '.join(ckey.split(" ")[1:-1]), cvalue, issues):
 		if not closest_issues_nlp(' '.join(ckey.split(" ")[1:-1]), cvalue, tfidf, issues_tfidf, issues, 0.1):
+			no_suspicious += 1
+			if ckey.split(" ")[-1] == "T": tp += 1
 			print(ckey.split(" ")[0], end=",")
+
+
+print("\n\nPrecision: %.3f" %(tp/no_suspicious))
+print("Recall: %.2f" %(tp/no_malicious))
