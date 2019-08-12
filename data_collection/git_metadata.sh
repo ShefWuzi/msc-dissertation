@@ -69,12 +69,12 @@ author_details(){
 		author=$(echo "$contrib" | grep "$author_name")
 		
 		if [[ $author != "" ]]; then
-			commit_author=$(echo "$contrib" | cut -d , -f 2-)
+			commit_author=$(echo "$1,$contrib" | cut -d , -f 2-)
 			return 1
 		fi
 	done <<< "$contrib_arr"
 
-	commit_author=$(echo "-1,-1,-1,-1,-1,-1,-1")
+	commit_author=$(echo "$1,-1,-1,-1,-1,-1,-1,-1")
 }
 
 get_date(){
@@ -82,28 +82,31 @@ get_date(){
 	hod=$(echo "$1" | cut -d ' ' -f 4 | cut -d ':' -f 1)
 	moh=$(echo "$1" | cut -d ' ' -f 4 | cut -d ':' -f 2)
 
-	commit_date=$(echo "$dow,$hod,$moh")
+	dom=$(echo "$1" | cut -d ' ' -f 3)
+	moy=$(echo "$1" | cut -d ' ' -f 2)
+	yoc=$(echo "$1" | cut -d ' ' -f 5)
+	commit_date=$(echo "$dow,$hod,$moh,$dom $moy $yoc")
 }
 
-repo_deets=""
-repo_details(){
-	repo_deets=$(curl -s https://api.github.com/repos/$user/$repo)
 
-	forks_count=$(echo "$repo_deets" | jq '.forks_count')
-	stargazers_count=$(echo "$repo_deets" | jq '.stargazers_count')
-	watchers_count=$(echo "$repo_deets" | jq '.watchers_count')
-	size=$(echo "$repo_deets" | jq '.size')
-	open_issues_count=$(echo "$repo_deets" | jq '.open_issues_count')
-	subscribers_count=$(echo "$repo_deets" | jq '.subscribers_count')
+repo_deets=$(curl -s https://api.github.com/repos/$user/$repo)
 
-	repo_deets=$(echo "$forks_count,$stargazers_count,$watchers_count,$size,$open_issues_count,$subscribers_count")
-}
+forks_count=$(echo "$repo_deets" | jq '.forks_count')
+stargazers_count=$(echo "$repo_deets" | jq '.stargazers_count')
+watchers_count=$(echo "$repo_deets" | jq '.watchers_count')
+size=$(echo "$repo_deets" | jq '.size')
+open_issues_count=$(echo "$repo_deets" | jq '.open_issues_count')
+subscribers_count=$(echo "$repo_deets" | jq '.subscribers_count')
+
+repo_deets=$(echo "$forks_count,$stargazers_count,$watchers_count,$size,$open_issues_count,$subscribers_count")
+
+
 
 folder=$(echo "$1" | cut -d / -f 5)
 git clone $1 /tmp/$folder
 
 cd /tmp/$folder
-echo "Repo_Forks, Repo_Stars, Repo_Watchers, Repo_Size, Repo_Issues, Repo_Subscribers, Author_Repos, Author_Gists, Author_Followers, Author_Following, Author_Type, Author_Company, Author_Days, Commit_Date_DOW, Commit_Date_HOD, Commit_Date_MOH, Commit Message, Number of Removed File, Number of Added Files, Number of Edited Files, Amount of edit bytes, Added content, Removed content"
+echo "Repo_Forks, Repo_Stars, Repo_Watchers, Repo_Size, Repo_Issues, Repo_Subscribers, Author_Name, Author_Repos, Author_Gists, Author_Followers, Author_Following, Author_Type, Author_Company, Author_Days, Commit_Date_DOW, Commit_Date_HOD, Commit_Date_MOH, Commit_Date, Commit Message, Number of Removed Files, Number of Added Files, Number of Edited Files, Number_of_edited_lines, Amount of edit bytes, Added content, Removed content"
 for id in $(git log | grep -E "^commit" | cut -d ' ' -f 2); do
 
 	commit_details=$(git show $id | cat)
@@ -120,6 +123,7 @@ for id in $(git log | grep -E "^commit" | cut -d ' ' -f 2); do
 	n_edit_files=$(echo "$commit_details" | grep -E '^-{3}|^\+{3}' | grep -v /dev/null | grep -oE '^-{3}|^\+{3}' | sort |  uniq -c | sort -n | head -n 1 | awk '{print $1}')
 
 	n_edit_size=$(echo "$commit_details" | grep -E '^\+[^\+{2}]|^-[^-{2}]' | wc -c)
+	n_edit_lines=$(echo "$commit_details" | grep -E '^\+[^\+{2}]|^-[^-{2}]' | wc -l)
 	added_lines=$(echo "$commit_details" | grep -E '^\+[^\+{2}]' | perl -p -e 's/\n/<\\n>/' | sed -e 's/,/<c>/g')
 	removed_lines=$(echo "$commit_details" | grep -E '^-[^-{2}]' | perl -p -e 's/\n/<\\n>/' | sed -e 's/,/<c>/g')
 
@@ -127,9 +131,7 @@ for id in $(git log | grep -E "^commit" | cut -d ' ' -f 2); do
 		n_edit_files=0
 	fi
 
-	repo_details
-
-	echo "$repo_deets,$commit_author,$commit_date,$commit_msg,$n_removed_files,$n_added_files,$n_edit_files,$n_edit_size,$added_lines,$removed_lines"
+	echo "$repo_deets,$commit_author,$commit_date,$commit_msg,$n_removed_files,$n_added_files,$n_edit_files,$n_edit_lines,$n_edit_size,$added_lines,$removed_lines"
 
 done
 
