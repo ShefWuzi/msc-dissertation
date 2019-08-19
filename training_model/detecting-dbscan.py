@@ -7,59 +7,59 @@ if len(sys.argv) != 2:
 	sys.exit(0)
 
 
-def regionQuery(P, eps):
-	global D
 
-	eps_neighborhood = [P]
-	for P_ in D:
-		if P == P_:continue
+class DBSCAN:
+	def __init__(self, D, eps, MinPts=3):
+		self.D = D
+		self.eps = eps
+		self.MinPts = MinPts
+		self.clusters = []
 
-		P_d = P["data"]
-		P__d = P_["data"]
-		eps_check = [P_d[0] == P__d[0], P_d[1] == P__d[1], P__d[2] in [x if x < 24 else x-24 for x in range(P_d[2], P_d[2]+eps[0])], P__d[3] in [x if x < 60 else x-60 for x in range(P_d[3], P_d[3]+eps[1])], abs(P_d[4]-P__d[4]) < (2*eps[2]), abs(P__d[5]-P_d[5]) < (2*eps[3]), abs(P__d[6] - P_d[6]) < (2*eps[4]), abs(P__d[7]-P_d[7]) < (2*eps[5])]
+	def regionQuery(self, P, eps):
+		eps_neighborhood = [P]
+		for P_ in self.D:
+			if P == P_:continue
 
-		if Counter(eps_check[1:])[True] > 6:
-			eps_neighborhood.append(P_)
+			P_d = P["data"]
+			P__d = P_["data"]
+			eps_check = [P_d[0] == P__d[0], P_d[1] == P__d[1], P__d[2] in [x if x < 24 else x-24 for x in range(P_d[2], P_d[2]+eps[0])], P__d[3] in [x if x < 60 else x-60 for x in range(P_d[3], P_d[3]+eps[1])], abs(P_d[4]-P__d[4]) < (2*eps[2]), abs(P__d[5]-P_d[5]) < (2*eps[3]), abs(P__d[6] - P_d[6]) < (2*eps[4]), abs(P__d[7]-P_d[7]) < (2*eps[5])]
 
-	return eps_neighborhood
+			if Counter(eps_check[1:])[True] > 6:
+				eps_neighborhood.append(P_)
 
-def expandCluster(P, NeighborPts, cluster, eps, MinPts):
-	global D
-	global clusters
+		return eps_neighborhood
 
-	cluster.append(P)
-	D[P["id"]]["cluster"] = len(clusters)
+	def expandCluster(self, P, NeighborPts, cluster, eps, MinPts):
+		cluster.append(P)
+		D[P["id"]]["cluster"] = len(self.clusters)
 
-	for P_ in NeighborPts:
-		if not P_["visited"]:
-			D[P_["id"]]["visited"], P_["visited"] = True, True
-			NeighborPts_ = regionQuery(P_, eps)
-			if len(NeighborPts_) >= MinPts:
-				NeighborPts.extend(NeighborPts_)
+		for P_ in NeighborPts:
+			if not P_["visited"]:
+				self.D[P_["id"]]["visited"], P_["visited"] = True, True
+				NeighborPts_ = self.regionQuery(P_, eps)
+				if len(NeighborPts_) >= MinPts:
+					NeighborPts.extend(NeighborPts_)
 
-		if P_["cluster"] is None:
-			D[P_["id"]]["cluster"], P_["cluster"] = len(clusters), len(clusters)
-			cluster.append(P_)
-	clusters.append(cluster)
+			if P_["cluster"] is None:
+				self.D[P_["id"]]["cluster"], P_["cluster"] = len(self.clusters), len(self.clusters)
+				cluster.append(P_)
+		self.clusters.append(cluster)
 
-#eps[hod+2, moh+10, n_r_std, n_a_std, n_e_std, n_e_l_std]
-def DBSCAN(eps, MinPts=3):
-	global D
-	global clusters
+	#eps[hod+2, moh+10, n_r_std, n_a_std, n_e_std, n_e_l_std]
+	def fit_transform(self):
+		for P in self.D:
+			if P["visited"]: continue
 
-	for P in D:
-		if P["visited"]: continue
-
-		D[P["id"]]["visited"] = True
-		NeighborPts = regionQuery(P, eps)
-		if len(NeighborPts) < MinPts:
-			D[P["id"]]["type"] = "N"
-		else:
-			expandCluster(P, NeighborPts, [], eps, MinPts)
+			self.D[P["id"]]["visited"] = True
+			NeighborPts = self.regionQuery(P, self.eps)
+			if len(NeighborPts) < self.MinPts:
+				self.D[P["id"]]["type"] = "N"
+			else:
+				self.expandCluster(P, NeighborPts, [], self.eps, self.MinPts)
 
 
 #[author_name, dow, hod, moh, n_removed, n_added, n_edit, n_edit_l, malicious]
-D, n_r, n_a, n_e, n_e_l, clusters, no_malicious = [], [], [], [], [], [], 0
+D, n_r, n_a, n_e, n_e_l, no_malicious = [], [], [], [], [], 0
 with open(sys.argv[1], "r") as data_file:
 	data_file.readline()
 	p_id = 0
@@ -76,8 +76,11 @@ with open(sys.argv[1], "r") as data_file:
 		D.append({"id": p_id, "visited": False, "malicious": True if ls[26].strip() == "T" else False,"cluster": None, "type": None, "data": [x if i < 15 else int(x) for i,x in enumerate(ls) if i in [6, 14, 15, 16, 19, 20, 21, 22]]})
 		p_id += 1
 
+
 # print(D[0], regionQuery(D[0], [2, 10, np.std(n_r), np.std(n_a), np.std(n_e), np.std(n_e_l)]))
-DBSCAN([3, 20, np.std(n_r), np.std(n_a), np.std(n_e), np.std(n_e_l)], 4)
+dbscan = DBSCAN(D, [3, 20, np.std(n_r), np.std(n_a), np.std(n_e), np.std(n_e_l)], 4)
+dbscan.fit_transform()
+D = dbscan.D
 
 tp = 0
 no_suspicious = 0
@@ -87,6 +90,7 @@ for P in D:
 		if P["malicious"]: tp+=1
 		print(P["id"], end=",")
 
-
-print("\n\nPrecision: %.3f" %(tp/no_suspicious))
-print("Recall: %.2f" %(tp/no_malicious))
+print("\nNumber of suspicious commits: %d" %(no_suspicious))
+print("Number of discovered malicious commits: %d" %tp)
+print("Precision: %.3f" %(tp/no_suspicious))
+print("Recall: %.3f" %(tp/no_malicious))
