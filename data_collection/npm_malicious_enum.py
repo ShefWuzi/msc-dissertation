@@ -6,7 +6,7 @@ req = requests.get("https://www.npmjs.com/advisories?page=0&perPage=500")
 
 soup = BeautifulSoup(req.text, "lxml")
 with open("npm_mal_pkg.csv", "w") as nmp:
-	nmp.write("Package Name, Advisory, Repository")
+	nmp.write("Package Name, Advisory, Repository\n")
 	for tr in soup.find_all("tr"):
 		if len(tr.find_all("td")) < 1: continue
 

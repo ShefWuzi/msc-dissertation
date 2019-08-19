@@ -17,7 +17,6 @@ issue_data() {
 		title=$(echo "$issue" | base64 -d | jq -r '.title' | sed 's/,//g' )
 		state=$(echo "$issue" | base64 -d | jq -r '.state')
 		id=$(echo "$issue" | base64 -d | jq -r '.number')
-		n_comments=$(echo "$issue" | base64 -d | jq -r '.comments')
 		created_time=$(echo "$issue" | base64 -d | jq -r '.created_at')
 		updated_time=$(echo "$issue" | base64 -d | jq -r '.updated_at')
 		closed_time=$(echo "$issue" | base64 -d | jq -r '.closed_at')
@@ -25,7 +24,6 @@ issue_data() {
 		user_name=$(echo "$issue" | base64 -d | jq -r '.user.login')
 		user_id=$(echo "$issue" | base64 -d | jq -r '.user.id')
 		author_assoc=$(echo "$issue" | base64 -d | jq -r '.author_association')
-		is_pull=$(echo "$issue" | base64 -d | jq -r '. | select(.pull_request)')
 
 		if [[ $is_pull == "" ]]; then 
 			is_pull="0";
@@ -33,7 +31,7 @@ issue_data() {
 			is_pull="1";
 		fi
 			
-		echo "$id,$state,$created_time,$updated_time,$closed_time,$is_pull,$user_name,$user_id,$author_assoc,$n_comments,$title,$body" 
+		echo "$id,$state,$created_time,$updated_time,$closed_time,$user_name,$user_id,$author_assoc,$title,$body" 
 	done
 }
 
@@ -48,7 +46,7 @@ do
 	fi
 done
 
-echo "ID,State,Time Created,Time Updated,Time Closed,Pull Request?,Username,User ID,Author Association,Number of Comments,Title,Body"
+echo "ID,State,Time Created,Time Updated,Time Closed,Username,User ID,Author Association,Title,Body"
 user=$(echo $1 | rev | cut -d / -f 2 | rev)
 repo=$(echo $1 | rev | cut -d / -f 1 | rev)
 
@@ -59,8 +57,8 @@ fi
 issue_data "$issue_resp"
 
 
-issue_resp=$(curl -s https://api.github.com/repos/$user/$repo/issues?state=open&filter=all&direction=asc)
+pull_resp=$(curl -s https://api.github.com/repos/$user/$repo/pulls?state=closed&filter=all&direction=asc)
 if [[ $issue_resp == "" ]]; then
 	exit;
 fi
-issue_data "$issue_resp"
+issue_data "$pull_resp"
