@@ -16,16 +16,17 @@ def find_similar_issues(issues_tfidf, commit_tfidf, top_n=5):
 
 def fix_commits_heuristics(commit_date, commit_text, issues):
 	
-	heuristics_word = ["fix", "bug", "issue", "resolve"]
+	heuristics_word = ["fix", "bug", "issue", "resolve", "merge", "pull", "request"]
 	for word in heuristics_word:
 		if word in commit_text:
 			issue_nums = re.findall("#[0-9]+", commit_text)
 			if len(issue_nums) > 0:
 				for issue_num in issue_nums:
-					if issue_num.replace("#", "") in issues and issues[issue_num.replace("#", "")][0] == "closed":
+					if issue_num.replace("#", "") in issues:
 						issue_num = issue_num.replace("#", "")
-						commit_date = datetime.strptime(commit_date, "%d %b %Y")
-						if commit_date >= datetime.strptime(issues[issue_num][1].split("T")[0], "%Y-%m-%d") and commit_date <= datetime.strptime(issues[issue_num][3].split("T")[0], "%Y-%m-%d"):
+						if type(commit_date) == str:
+							commit_date = datetime.strptime(commit_date, "%d %b %Y")
+						if commit_date >= datetime.strptime(issues[issue_num][0].split("T")[0], "%Y-%m-%d") and commit_date <= datetime.strptime(issues[issue_num][2].split("T")[0], "%Y-%m-%d"):
 							return True
 
 	return False
@@ -39,26 +40,26 @@ def closest_issues_nlp(commit_date, commit_text, tfidf, issues_tfidf, issues, sc
 		issue = issues[list(issues.keys())[issue_index]]
 		if type(commit_date) == str:
 			commit_date = datetime.strptime(commit_date, "%d %b %Y")
-		if commit_date >= datetime.strptime(issue[1].split("T")[0], "%Y-%m-%d") and commit_date <= datetime.strptime(issue[3].split("T")[0], "%Y-%m-%d"):
+		if commit_date >= datetime.strptime(issue[0].split("T")[0], "%Y-%m-%d") and commit_date <= datetime.strptime(issue[2].split("T")[0], "%Y-%m-%d"):
 			return True
 	return False
 
 
 
-ids = list(map(int, sys.argv[1].split(",")))
+ids = list(map(int, sys.argv[1][:-1].split(",")))
 issues, commits = {}, {}
 
-#[state, created_time, updated_time, closed_time, title, body]
+#[created_time, updated_time, closed_time, title, body]
 with open(sys.argv[2], "r") as issue_file:
 	issue_file.readline()
 	for line in issue_file:
 		ls = line.split(",")
 
-		issues[ls[0]] = [x for i, x in enumerate(ls) if i in [1, 2, 3, 4, 10, 11]]
+		issues[ls[0]] = [x for i, x in enumerate(ls) if i in [2, 3, 4, 8, 9]]
 
 
 no_malicious = 0
-#{p_id commit_date : commit message}
+#{commit_date hod:moh : commit message}
 with open(sys.argv[3], "r") as commit_file:
 	commit_file.readline()
 	p_id = 0
@@ -70,24 +71,27 @@ with open(sys.argv[3], "r") as commit_file:
 			p_id += 1
 			continue
 
-		ckey = "%d %s %s" %(p_id, ls[17], ls[26].strip())
-		commits[ckey] = commits.get(ckey, "") + "\n" + ls[18].replace("<c>", ",").replace("<\n>", "\n")
+		ckey = "%s %s:%s" %(ls[17], ls[15], ls[16])
+		commits[ckey] = {"message": commits.get(ckey, {}).get("message", "") + "\n" + ls[18].replace("<c>", ",").replace("<\n>", "\n"), "p_ids": commits.get(ckey, {}).get("p_ids", []) + [p_id], "malicious": commits.get(ckey, {}).get("malicious", []) + [ls[26].strip()]}
+		# commits[ckey]["message"] = commits[ckey].get("message", "") + "\n" + ls[18].replace("<c>", ",").replace("<\n>", "\n")
+		# commits[ckey]["p_ids"] = commits[ckey].get("p_ids", []) + 
 		p_id += 1
 
 #Create TFIDF of all issues
 tfidf = TfidfVectorizer(analyzer="word", ngram_range=(1,3), min_df=0, stop_words="english")
-issues_tfidf = tfidf.fit_transform([v[4]+"\n"+v[5] for v in issues.values()])
+issues_tfidf = tfidf.fit_transform([v[3]+"\n"+v[4] for v in issues.values()])
 
 
 no_suspicious = 0
 tp = 0
 for ckey, cvalue in commits.items():
-	if not fix_commits_heuristics(' '.join(ckey.split(" ")[1:-1]), cvalue, issues):
-		if not closest_issues_nlp(' '.join(ckey.split(" ")[1:-1]), cvalue, tfidf, issues_tfidf, issues, 0.1):
-			no_suspicious += 1
-			if ckey.split(" ")[-1] == "T": tp += 1
-			print(ckey.split(" ")[0], end=",")
+	if not fix_commits_heuristics(' '.join(ckey.split(" ")[:-1]), cvalue["message"], issues):
+		if not closest_issues_nlp(' '.join(ckey.split(" ")[:-1]), cvalue["message"], tfidf, issues_tfidf, issues, 0.005):
+			no_suspicious += len(cvalue["p_ids"])
+			tp += len([x for x in cvalue["malicious"] if x == "T"])
+			
 
-
-print("\n\nPrecision: %.3f" %(tp/no_suspicious))
-print("Recall: %.2f" %(tp/no_malicious))
+print("Number of suspicious commits: %d" %(no_suspicious))
+print("Number of discovered malicious commits: %d" %tp)
+print("Precision: %.3f" %(tp/no_suspicious))
+print("Recall: %.3f" %(tp/no_malicious))
