@@ -22,7 +22,7 @@ class DBSCAN:
 
 			P_d = P["data"]
 			P__d = P_["data"]
-			eps_check = [P_d[0] == P__d[0], P_d[1] == P__d[1], P__d[2] in [x if x < 24 else x-24 for x in range(P_d[2], P_d[2]+eps[0])], P__d[3] in [x if x < 60 else x-60 for x in range(P_d[3], P_d[3]+eps[1])], abs(P_d[4]-P__d[4]) < (2*eps[2]), abs(P__d[5]-P_d[5]) < (2*eps[3]), abs(P__d[6] - P_d[6]) < (2*eps[4]), abs(P__d[7]-P_d[7]) < (2*eps[5])]
+			eps_check = [P_d[0] == P__d[0], P_d[1] == P__d[1], P__d[2] in [x if x < 24 else x-24 for x in range(P_d[2], P_d[2]+eps[0])], P__d[3] in [x if x < 60 else x-60 for x in range(P_d[3], P_d[3]+eps[1])], abs(P_d[4]-P__d[4]) < (10*eps[2]), abs(P__d[5]-P_d[5]) < (10*eps[3]), abs(P__d[6] - P_d[6]) < (10*eps[4]), abs(P__d[7]-P_d[7]) < (10*eps[5])]
 
 			if Counter(eps_check[1:])[True] > 6:
 				eps_neighborhood.append(P_)
@@ -84,7 +84,8 @@ D = dbscan.D
 
 tp = 0
 no_suspicious = 0
-for P in D:
+
+for P in D:	
 	if P["cluster"] is None: 
 		no_suspicious += 1
 		if P["malicious"]: tp+=1
